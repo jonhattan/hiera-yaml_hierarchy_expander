@@ -1,5 +1,5 @@
 {
-  "name": "sbitio-hiera-yaml_hierarchy_expander",
+  "name": "sbitio-hiera_yaml_hierarchy_expander",
   "version": "2.0.0",
   "author": "SB IT Media, S.L.",
   "summary": "Hiera backend plugin that expands the hierarchy definition by interpolating arrays and wildcards",
