@@ -1,9 +1,9 @@
 class Hiera
   module Backend
-    class Yaml_backend
+    class Yaml_hierarchy_expander_backend
       def initialize(cache=nil)
         require 'yaml'
-        Hiera.debug("Hiera YAML backend starting")
+        Hiera.debug("Hiera YAML_hierarchy_expander backend starting")
 
         @cache = cache || Filecache.new
       end
@@ -11,9 +11,58 @@ class Hiera
       def lookup(key, scope, order_override, resolution_type)
         answer = nil
 
-        Hiera.debug("Looking up #{key} in YAML backend")
+        Hiera.debug("Looking up #{key} in YAML_hierarchy_expander backend")
 
-        Backend.datasourcefiles(:yaml, scope, "yaml", order_override) do |source, yamlfile|
+        # Prepare expanders.
+        expanders = {}
+        if Config[:yaml_hierarchy_expander] && Config[:yaml_hierarchy_expander][:expanders]
+          Config[:yaml_hierarchy_expander][:expanders].each do |expander|
+            if scope.include? expander
+              var = "%{#{expander}}"
+              expanders[var] = scope[expander]
+            else
+              Hiera.debug("'#{expander}' expander not in scope. Ignoring.")
+            end
+          end
+        end
+
+        # Get the raw hierarchy.
+        # # This extracted from Backend.datasources().
+        hierarchy = [Config[:hierarchy]].flatten
+        hierarchy.insert(0, order_override) if order_override
+
+        # Unroll hierarchy lines containing expanders.
+        expanders.each do |expander_var, items|
+          Hiera.debug("Expanding #{expander_var}")
+          hierarchy.map! do |source|
+            if source.include? expander_var
+              Hiera.debug("  Match in #{source}")
+              lines = []
+              items.each do |item|
+                lines << source.gsub(expander_var, item)
+              end
+              lines
+            else
+              source
+            end
+          end
+          hierarchy.flatten!
+        end
+
+        # Interpolate and expand wildcards.
+        h2 = []
+        datadir = Backend.datadir(:yaml_hierarchy_expander, scope)
+        Backend.datasources(scope, order_override, hierarchy) do |source|
+          if source.end_with? '*'
+            Hiera.debug("Expanding wildcard #{source}")
+            h2 << Dir["#{datadir}/#{source}.yaml"].map {|path| path.gsub(datadir + "/", "").chomp(".yaml") }
+          else
+            h2 << source
+          end
+        end
+        hierarchy = h2.flatten
+
+        Backend.datasourcefiles(:yaml_hierarchy_expander, scope, "yaml", order_override, hierarchy) do |source, yamlfile|
           data = @cache.read_file(yamlfile, Hash) do |data|
             YAML.load(data) || {}
           end
