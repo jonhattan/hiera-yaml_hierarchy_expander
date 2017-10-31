@@ -64,7 +64,7 @@ class Hiera
         return answer
       end
 
-      def get_hierarchy(scope, order_override):
+      def get_hierarchy(scope, order_override)
         # Prepare expanders.
         expanders = {}
         if Config[:yaml_hierarchy_expander] && Config[:yaml_hierarchy_expander][:expanders]
