@@ -2,6 +2,7 @@
 
 Hiera backend plugin that expands the hierarchy definition by interpolating arrays and wildcards.
 
+Use 1.x.x releases for Hiera 1.x and 2.x, and 2.x.x releases for Hiera 3.x.
 
 ## Example
 
