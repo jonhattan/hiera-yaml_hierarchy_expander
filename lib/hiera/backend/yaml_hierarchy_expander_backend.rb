@@ -7,6 +7,7 @@ class Hiera
 
         @cache = cache || Filecache.new
         @hierarchy = nil
+        @file_exists = {}
       end
 
       def lookup(key, scope, order_override, resolution_type)
@@ -16,9 +17,18 @@ class Hiera
 
         @hierarchy ||= get_hierarchy(scope, order_override)
 
-        Backend.datasourcefiles(:yaml_hierarchy_expander, scope, "yaml", order_override, hierarchy) do |source, yamlfile|
-          data = @cache.read_file(yamlfile, Hash) do |data|
-            YAML.load(data) || {}
+        #### Unroll datasourcefiles.
+        datadir = Backend.datadir(:yaml_hierarchy_expander, scope)
+        Backend.datasources(scope, order_override, @hierarchy) do |source|
+          Hiera.debug("Looking for data source #{source}")
+          file = File.join(datadir, "#{source}.yaml")
+          @file_exists[file] ||= File.exists?(file)
+          if @file_exists[file]
+            data = @cache.read_file(file, Hash) do |data|
+              YAML.load(data) || {}
+            end
+          else
+            next
           end
 
           next if data.empty?
